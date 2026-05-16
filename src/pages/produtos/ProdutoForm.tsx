@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,6 +28,31 @@ const produtoSchema = z.object({
 
 type ProdutoFormValues = z.infer<typeof produtoSchema>;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function normalizeCategorias(payload: unknown): Categoria[] {
+  if (isRecord(payload) && isRecord(payload.data) && Array.isArray(payload.data.data)) return payload.data.data as Categoria[];
+  if (isRecord(payload) && Array.isArray(payload.data)) return payload.data as Categoria[];
+  if (Array.isArray(payload)) return payload;
+  return [];
+}
+
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (!isRecord(error) || !isRecord(error.response) || !isRecord(error.response.data)) return fallback;
+  const data = error.response.data;
+  return typeof data.message === "string" ? data.message : fallback;
+}
+
+function sortCategorias(categorias: Categoria[]) {
+  return [...categorias].sort((a, b) => {
+    const pathA = a.caminho || a.nome;
+    const pathB = b.caminho || b.nome;
+    return (a.nivel ?? 1) - (b.nivel ?? 1) || pathA.localeCompare(pathB);
+  });
+}
+
 export default function ProdutoForm() {
   const { id } = useParams();
   const isEditing = !!id;
@@ -38,9 +63,7 @@ export default function ProdutoForm() {
     queryKey: ["categorias"],
     queryFn: () => categoriaService.getAll(),
   });
-  const categorias: Categoria[] = Array.isArray(categoriasData?.data?.data) 
-    ? categoriasData.data.data 
-    : (Array.isArray(categoriasData?.data) ? categoriasData.data : (Array.isArray(categoriasData) ? categoriasData : []));
+  const categorias = useMemo(() => sortCategorias(normalizeCategorias(categoriasData)), [categoriasData]);
 
   const { data: produtoData, isLoading: isLoadingProduto } = useQuery({
     queryKey: ["produto", id],
@@ -84,6 +107,8 @@ export default function ProdutoForm() {
 
   // Auto-generate slug from name if not editing
   const nomeValue = watch("nome");
+  const categoriaId = watch("categoria_id");
+  const selectedCategory = categorias.find((categoria) => categoria.id === categoriaId);
   useEffect(() => {
     if (!isEditing && nomeValue) {
       const slug = nomeValue
@@ -172,9 +197,15 @@ export default function ProdutoForm() {
                 >
                   <option value="">Selecione uma categoria...</option>
                   {categorias.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.nome}</option>
+                    <option key={cat.id} value={cat.id}>
+                      {"  ".repeat(Math.max((cat.nivel ?? 1) - 1, 0))}
+                      {cat.emoji || "📁"} {cat.caminho || cat.nome}
+                    </option>
                   ))}
                 </select>
+                <p className="text-xs text-muted-foreground">
+                  Prefira selecionar a subcategoria mais específica. Categoria atual: {selectedCategory?.caminho || selectedCategory?.nome || "nenhuma"}.
+                </p>
                 {errors.categoria_id && <p className="text-sm text-red-500">{errors.categoria_id.message}</p>}
               </div>
 
@@ -241,7 +272,7 @@ export default function ProdutoForm() {
 
             {mutation.isError && (
               <div className="p-3 bg-red-50 text-red-600 text-sm rounded-md border border-red-200">
-                {(mutation.error as any)?.response?.data?.message || "Erro ao salvar produto"}
+                {getApiErrorMessage(mutation.error, "Erro ao salvar produto")}
               </div>
             )}
 

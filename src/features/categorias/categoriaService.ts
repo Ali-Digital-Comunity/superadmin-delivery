@@ -3,17 +3,22 @@ import { api } from "../../lib/api";
 export interface Categoria {
   id: string;
   nome: string;
-  slug: string;
-  ordem_exibicao: number;
+  slug?: string;
+  ordem_exibicao?: number;
   ativa: boolean;
-  emoji: string | null;
-  criado_em: string;
-  atualizado_em: string;
+  emoji?: string | null;
+  categoria_pai_id?: string | null;
+  categoria_pai_nome?: string | null;
+  nivel?: number;
+  caminho?: string;
+  filhos?: Categoria[];
+  criado_em?: string;
+  atualizado_em?: string;
 }
 
 export const categoriaService = {
   getAll: async () => {
-    const response = await api.get("/categorias");
+    const response = await api.get("/categorias", { params: { per_page: 200 } });
     return response.data?.data ?? response.data;
   },
   getById: async (id: string) => {
