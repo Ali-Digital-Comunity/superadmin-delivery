@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Package, Plus, Search, Edit, Trash2, MoreVertical, Settings } from "lucide-react";
-import { produtoService, type Produto } from "../../features/produtos/produtoService";
+import { ChevronLeft, ChevronRight, Edit, MoreVertical, Package, Plus, Search, Settings, Trash2 } from "lucide-react";
+import { produtoService, type PaginatedProdutos, type Produto } from "../../features/produtos/produtoService";
 
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -17,16 +17,39 @@ import { Badge } from "../../components/ui/badge";
 
 export default function ProdutosList() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
+  const [sortBy, setSortBy] = useState("nome");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["produtos"],
-    queryFn: () => produtoService.getAll(),
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, perPage, sortBy, sortOrder]);
+
+  const queryParams = useMemo(() => ({
+    page,
+    per_page: perPage,
+    sort_by: sortBy,
+    sort_order: sortOrder,
+    ...(searchTerm.trim() ? { busca_global: searchTerm.trim() } : {}),
+  }), [page, perPage, searchTerm, sortBy, sortOrder]);
+
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ["produtos", queryParams],
+    queryFn: () => produtoService.getAll(queryParams),
   });
 
-  const produtos: Produto[] = Array.isArray(data?.data?.data) 
-    ? data.data.data 
-    : (Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []));
+  const paginated: PaginatedProdutos = {
+    data: Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []),
+    total: Number(data?.total ?? 0),
+    page: Number(data?.page ?? page),
+    per_page: Number(data?.per_page ?? perPage),
+    total_pages: Number(data?.total_pages ?? 1),
+  };
+
+  const produtos: Produto[] = paginated.data;
+  const totalPages = Math.max(1, paginated.total_pages || 1);
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => produtoService.delete(id),
@@ -42,11 +65,6 @@ export default function ProdutosList() {
       queryClient.invalidateQueries({ queryKey: ["produtos"] });
     },
   });
-
-  const filteredProdutos = produtos.filter((p) =>
-    p.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.codigo_barras?.includes(searchTerm)
-  );
 
   return (
     <div className="space-y-6">
@@ -73,16 +91,48 @@ export default function ProdutosList() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
+          <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col lg:flex-row lg:items-center gap-3">
+            <div className="relative flex-1 min-w-[220px]">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Buscar produtos..."
+                placeholder="Buscar por nome, descrição, marca ou EAN..."
                 className="pl-9"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+                className="h-10 rounded-md border border-input bg-transparent px-3 text-sm"
+              >
+                <option value="nome">Nome</option>
+                <option value="marca">Marca</option>
+                <option value="codigo_barras">Código de barras</option>
+                <option value="ativo">Status</option>
+                <option value="criado_em">Criado em</option>
+                <option value="atualizado_em">Atualizado em</option>
+              </select>
+              <select
+                value={sortOrder}
+                onChange={(event) => setSortOrder(event.target.value as "asc" | "desc")}
+                className="h-10 rounded-md border border-input bg-transparent px-3 text-sm"
+              >
+                <option value="asc">Crescente</option>
+                <option value="desc">Decrescente</option>
+              </select>
+              <select
+                value={perPage}
+                onChange={(event) => setPerPage(Number(event.target.value))}
+                className="h-10 rounded-md border border-input bg-transparent px-3 text-sm"
+              >
+                <option value={10}>10 por página</option>
+                <option value={20}>20 por página</option>
+                <option value={50}>50 por página</option>
+                <option value={100}>100 por página</option>
+              </select>
             </div>
           </div>
 
@@ -105,14 +155,14 @@ export default function ProdutosList() {
                       Carregando produtos...
                     </td>
                   </tr>
-                ) : filteredProdutos.length === 0 ? (
+                ) : produtos.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                       Nenhum produto encontrado.
                     </td>
                   </tr>
                 ) : (
-                  filteredProdutos.map((produto) => (
+                  produtos.map((produto) => (
                     <tr key={produto.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
@@ -201,6 +251,38 @@ export default function ProdutosList() {
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-800">
+            <div className="text-sm text-muted-foreground">
+              {isFetching ? "Atualizando..." : (
+                <>
+                  Página {paginated.page} de {totalPages} · {paginated.total} produto{paginated.total === 1 ? "" : "s"}
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1 || isFetching}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Anterior
+              </Button>
+              <span className="min-w-12 text-center text-sm font-medium">
+                {paginated.page}/{totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages || isFetching}
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+              >
+                Próxima
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

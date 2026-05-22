@@ -4,10 +4,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, Package, Edit, Plus, Trash2, Tag, Layers, Loader2 } from "lucide-react";
+import { ArrowLeft, Edit, Image as ImageIcon, Layers, Loader2, Package, Plus, Tag, Trash2 } from "lucide-react";
 
 import { produtoService } from "../../features/produtos/produtoService";
 import { variacaoProdutoService, type VariacaoProduto } from "../../features/produtos/variacaoProdutoService";
+import ProductImageGallery from "./ProductImageGallery";
 
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
@@ -265,6 +266,21 @@ export default function ProdutoDetails() {
           </Card>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <ImageIcon className="w-4 h-4" />
+            Imagens do Produto
+          </CardTitle>
+          <CardDescription>
+            Gerencie galeria, imagem principal, uploads locais e imagens por URL.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ProductImageGallery productId={produto.id} productName={produto.nome} />
+        </CardContent>
+      </Card>
 
       {/* Modal / Formulário In-line de Variação (Usando div fixa para simular modal por simplicidade sem add lib externa de Dialog) */}
       {isVariacaoModalOpen && (

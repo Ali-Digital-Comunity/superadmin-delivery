@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { produtoService } from "../../features/produtos/produtoService";
 import { categoriaService, type Categoria } from "../../features/categorias/categoriaService";
+import ProductImageGallery, { type PendingProductImage } from "./ProductImageGallery";
 
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -22,7 +23,6 @@ const produtoSchema = z.object({
   codigo_barras: z.string().optional(),
   unidade_medida: z.string().min(1, "Unidade de medida é obrigatória"),
   vendavel_por_peso: z.boolean(),
-  imagem_url: z.string().url("URL de imagem inválida").optional().or(z.literal("")),
   ativo: z.boolean(),
 });
 
@@ -58,6 +58,7 @@ export default function ProdutoForm() {
   const isEditing = !!id;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [pendingImages, setPendingImages] = useState<PendingProductImage[]>([]);
 
   const { data: categoriasData } = useQuery({
     queryKey: ["categorias"],
@@ -99,7 +100,6 @@ export default function ProdutoForm() {
         codigo_barras: p.codigo_barras || "",
         unidade_medida: p.unidade_medida || "unidade",
         vendavel_por_peso: p.vendavel_por_peso ?? false,
-        imagem_url: p.imagem_url || "",
         ativo: p.ativo ?? true,
       });
     }
@@ -121,15 +121,60 @@ export default function ProdutoForm() {
     }
   }, [nomeValue, isEditing, setValue]);
 
+  const extractProductId = (payload: any) => (
+    payload?.data?.produto?.id ||
+    payload?.data?.id ||
+    payload?.produto?.id ||
+    payload?.id ||
+    null
+  );
+
+  const uploadPendingImages = async (productId: string) => {
+    for (let index = 0; index < pendingImages.length; index += 1) {
+      const image = pendingImages[index];
+      const isPrimary = image.is_primary || (!pendingImages.some((item) => item.is_primary) && index === 0);
+
+      if (image.kind === "file" && image.file) {
+        await produtoService.uploadImage(productId, image.file, {
+          alt_text: watch("nome"),
+          is_primary: isPrimary,
+        });
+      }
+
+      if (image.kind === "url" && image.url) {
+        await produtoService.uploadImageFromUrl(productId, {
+          url: image.url,
+          alt_text: watch("nome"),
+          is_primary: isPrimary,
+        });
+      }
+    }
+  };
+
   const mutation = useMutation({
-    mutationFn: (data: ProdutoFormValues) => {
+    mutationFn: async (data: ProdutoFormValues) => {
       if (isEditing) {
         return produtoService.update(id, data);
       }
-      return produtoService.create(data);
+      const response = await produtoService.create(data);
+      const createdProductId = extractProductId(response);
+
+      if (!createdProductId) {
+        throw new Error("Produto criado, mas a API não retornou o ID para enviar as imagens.");
+      }
+
+      if (pendingImages.length > 0) {
+        await uploadPendingImages(createdProductId);
+      }
+
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["produtos"] });
+      pendingImages.forEach((image) => {
+        if (image.kind === "file") URL.revokeObjectURL(image.previewUrl);
+      });
+      setPendingImages([]);
       navigate("/products");
     },
   });
@@ -252,10 +297,19 @@ export default function ProdutoForm() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="imagem_url">URL da Imagem</Label>
-              <Input id="imagem_url" {...register("imagem_url")} placeholder="https://..." />
-              {errors.imagem_url && <p className="text-sm text-red-500">{errors.imagem_url.message}</p>}
+            <div className="space-y-3">
+              <div>
+                <h3 className="font-semibold text-sm">Imagens do produto</h3>
+                <p className="text-xs text-muted-foreground">
+                  As imagens são salvas no Supabase Storage e a principal aparece na listagem.
+                </p>
+              </div>
+              <ProductImageGallery
+                productId={isEditing ? id : undefined}
+                productName={nomeValue || "Produto"}
+                pendingImages={pendingImages}
+                onPendingImagesChange={setPendingImages}
+              />
             </div>
 
             <div className="flex items-center gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
