@@ -18,7 +18,11 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 
-type TreeCategoria = Categoria & { filhos?: TreeCategoria[] };
+type TreeCategoria = Categoria & {
+  filhos?: TreeCategoria[];
+  childrenLoaded?: boolean;
+  isLoadingChildren?: boolean;
+};
 
 const levelLabels: Record<number, string> = {
   1: "Departamento",
@@ -56,8 +60,14 @@ function buildSlug(value: string) {
     .replace(/(^-|-$)+/g, "");
 }
 
-function buildTree(categorias: Categoria[]) {
-  const byId = new Map(categorias.map((categoria) => [categoria.id, { ...categoria, filhos: [] as TreeCategoria[] }]));
+function sortTree(items: TreeCategoria[]) {
+  items.sort((a, b) => (a.ordem_exibicao ?? 0) - (b.ordem_exibicao ?? 0) || a.nome.localeCompare(b.nome));
+  items.forEach((item) => sortTree(item.filhos ?? []));
+  return items;
+}
+
+function buildTree(categorias: Categoria[], options: { childrenLoaded?: boolean } = {}) {
+  const byId = new Map<string, TreeCategoria>(categorias.map((categoria) => [categoria.id, { ...categoria, filhos: [] as TreeCategoria[] }]));
   const roots: TreeCategoria[] = [];
 
   byId.forEach((categoria) => {
@@ -68,13 +78,47 @@ function buildTree(categorias: Categoria[]) {
     }
   });
 
-  const sort = (items: TreeCategoria[]) => {
-    items.sort((a, b) => (a.ordem_exibicao ?? 0) - (b.ordem_exibicao ?? 0) || a.nome.localeCompare(b.nome));
-    items.forEach((item) => sort(item.filhos ?? []));
+  if (options.childrenLoaded) {
+    byId.forEach((categoria) => {
+      categoria.childrenLoaded = true;
+    });
+  }
+
+  return sortTree(roots);
+}
+
+function buildLazyTree(
+  departments: Categoria[],
+  childrenByParentId: Record<string, Categoria[]>,
+  loadedChildrenIds: Set<string>,
+  loadingChildrenIds: Set<string>
+) {
+  const attachChildren = (categoria: Categoria): TreeCategoria => {
+    const children = childrenByParentId[categoria.id] ?? [];
+
+    return {
+      ...categoria,
+      filhos: children.map(attachChildren),
+      childrenLoaded: loadedChildrenIds.has(categoria.id),
+      isLoadingChildren: loadingChildrenIds.has(categoria.id),
+    };
   };
 
-  sort(roots);
-  return roots;
+  return sortTree(departments.map(attachChildren));
+}
+
+function flattenTree(items: TreeCategoria[]) {
+  const flattened: Categoria[] = [];
+
+  const collect = (nodes: TreeCategoria[]) => {
+    nodes.forEach((node) => {
+      flattened.push(node);
+      collect(node.filhos ?? []);
+    });
+  };
+
+  collect(items);
+  return flattened;
 }
 
 function categoryMatchesSearch(categoria: TreeCategoria, search: string): boolean {
@@ -103,33 +147,53 @@ function CategoriaRow({
   onToggleExpanded,
   onEdit,
   onDelete,
+  forceExpanded = false,
 }: {
   categoria: TreeCategoria;
   depth: number;
   expandedIds: Set<string>;
-  onToggleExpanded: (id: string) => void;
+  onToggleExpanded: (categoria: TreeCategoria) => void;
   onEdit: (categoria: Categoria) => void;
   onDelete: (id: string) => void;
+  forceExpanded?: boolean;
 }) {
   const filhos = categoria.filhos ?? [];
-  const hasChildren = filhos.length > 0;
-  const isExpanded = expandedIds.has(categoria.id);
   const level = categoria.nivel ?? 1;
+  const canHaveChildren = level < 3;
+  const hasChildren = filhos.length > 0;
+  const canToggle = canHaveChildren || hasChildren;
+  const isExpanded = forceExpanded || expandedIds.has(categoria.id);
   const grandChildrenCount = filhos.reduce((total, child) => total + (child.filhos?.length ?? 0), 0);
+  const childLabel = level === 1 ? "categorias" : "subcategorias";
 
   return (
     <>
       <div className="grid grid-cols-[1fr_auto] xl:grid-cols-[1fr_120px_170px_80px_110px] gap-2 items-center rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm transition-all hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950">
-        <div className="min-w-0" style={{ paddingLeft: depth * 18 }}>
+        <div
+          className={`min-w-0 ${canToggle ? "cursor-pointer" : ""}`}
+          style={{ paddingLeft: depth * 18 }}
+          role={canToggle ? "button" : undefined}
+          tabIndex={canToggle ? 0 : undefined}
+          onClick={() => canToggle && !categoria.isLoadingChildren && onToggleExpanded(categoria)}
+          onKeyDown={(event) => {
+            if (canToggle && !categoria.isLoadingChildren && (event.key === "Enter" || event.key === " ")) {
+              event.preventDefault();
+              onToggleExpanded(categoria);
+            }
+          }}
+        >
           <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
-              disabled={!hasChildren}
-              onClick={() => hasChildren && onToggleExpanded(categoria.id)}
-              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${hasChildren ? "text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800" : "cursor-default text-slate-200"}`}
-              title={hasChildren ? (isExpanded ? "Recolher" : "Expandir") : "Sem filhos"}
+              disabled={!canToggle || categoria.isLoadingChildren}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (canToggle) onToggleExpanded(categoria);
+              }}
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${canToggle ? "text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800" : "cursor-default text-slate-200"}`}
+              title={canToggle ? (isExpanded ? "Recolher" : `Carregar ${childLabel}`) : "Sem filhos"}
             >
-              {hasChildren && isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              {canToggle && isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             </button>
             <span className="text-lg leading-none">{categoria.emoji || "📁"}</span>
             <div className="min-w-0">
@@ -140,8 +204,14 @@ function CategoriaRow({
                 </span>
               </div>
               <div className="truncate text-[11px] text-slate-500">
-                {hasChildren
+                {categoria.isLoadingChildren
+                  ? `Carregando ${childLabel}...`
+                  : hasChildren
                   ? `${filhos.length} filho${filhos.length === 1 ? "" : "s"}${grandChildrenCount ? ` · ${grandChildrenCount} subcategoria${grandChildrenCount === 1 ? "" : "s"}` : ""}`
+                  : canHaveChildren && !categoria.childrenLoaded
+                    ? `Clique para carregar ${childLabel}`
+                    : canHaveChildren
+                      ? `Nenhuma ${childLabel.slice(0, -1)} cadastrada`
                   : categoria.caminho || categoria.slug || categoria.nome}
               </div>
             </div>
@@ -183,6 +253,7 @@ function CategoriaRow({
             onToggleExpanded={onToggleExpanded}
             onEdit={onEdit}
             onDelete={onDelete}
+            forceExpanded={forceExpanded}
           />
         ))}
     </>
@@ -194,36 +265,54 @@ export default function CategoriasList() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategoria, setEditingCategoria] = useState<Categoria | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [childrenByParentId, setChildrenByParentId] = useState<Record<string, Categoria[]>>({});
+  const [loadedChildrenIds, setLoadedChildrenIds] = useState<Set<string>>(new Set());
+  const [loadingChildrenIds, setLoadingChildrenIds] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const queryClient = useQueryClient();
+  const searchTerm = search.trim();
 
-  const { data: categoriesData, isLoading } = useQuery({
-    queryKey: ["categorias"],
-    queryFn: categoriaService.getAll,
+  const { data: departmentsData, isLoading } = useQuery({
+    queryKey: ["categorias", "departamentos"],
+    queryFn: categoriaService.getDepartments,
   });
 
-  const categorias = useMemo(() => normalizeList(categoriesData), [categoriesData]);
-  const tree = useMemo(() => buildTree(categorias), [categorias]);
-  const visibleTree = useMemo(() => filterTree(tree, search), [tree, search]);
-  const allExpandableIds = useMemo(() => {
-    const ids: string[] = [];
-    const collect = (items: TreeCategoria[]) => {
-      items.forEach((categoria) => {
-        if ((categoria.filhos ?? []).length > 0) {
-          ids.push(categoria.id);
-          collect(categoria.filhos ?? []);
-        }
-      });
-    };
-    collect(tree);
-    return ids;
-  }, [tree]);
-  const expandedCount = allExpandableIds.filter((id) => expandedIds.has(id)).length;
+  const { data: allCategoriesData, isFetching: isFetchingAllCategories } = useQuery({
+    queryKey: ["categorias", "all"],
+    queryFn: categoriaService.getAll,
+    enabled: isModalOpen || searchTerm.length > 0,
+  });
+
+  const departments = useMemo(() => normalizeList(departmentsData), [departmentsData]);
+  const lazyTree = useMemo(
+    () => buildLazyTree(departments, childrenByParentId, loadedChildrenIds, loadingChildrenIds),
+    [departments, childrenByParentId, loadedChildrenIds, loadingChildrenIds]
+  );
+  const searchCategories = useMemo(() => normalizeList(allCategoriesData), [allCategoriesData]);
+  const searchTree = useMemo(() => buildTree(searchCategories, { childrenLoaded: true }), [searchCategories]);
+  const visibleTree = useMemo(
+    () => (searchTerm ? filterTree(searchTree, searchTerm) : lazyTree),
+    [lazyTree, searchTerm, searchTree]
+  );
+  const loadedCategorias = useMemo(() => flattenTree(lazyTree), [lazyTree]);
+  const modalCategorias = useMemo(() => {
+    const allCategories = normalizeList(allCategoriesData);
+    return allCategories.length > 0 ? allCategories : loadedCategorias;
+  }, [allCategoriesData, loadedCategorias]);
+  const totalLoadedCategorias = loadedCategorias.length;
+
+  const resetLoadedChildren = () => {
+    setChildrenByParentId({});
+    setLoadedChildrenIds(new Set());
+    setLoadingChildrenIds(new Set());
+    setExpandedIds(new Set());
+  };
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => categoriaService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categorias"] });
+      resetLoadedChildren();
       setMessage({ type: "success", text: "Categoria excluída com sucesso" });
       setTimeout(() => setMessage(null), 3000);
     },
@@ -239,17 +328,41 @@ export default function CategoriasList() {
     }
   };
 
-  const handleToggleExpanded = (id: string) => {
+  const loadChildren = async (categoria: TreeCategoria) => {
+    const id = categoria.id;
+
+    setLoadingChildrenIds((current) => new Set(current).add(id));
+
+    try {
+      const children = await categoriaService.getChildren(id);
+      setChildrenByParentId((current) => ({ ...current, [id]: children }));
+      setLoadedChildrenIds((current) => new Set(current).add(id));
+    } catch {
+      setMessage({ type: "error", text: "Erro ao carregar categorias filhas." });
+      setTimeout(() => setMessage(null), 3000);
+    } finally {
+      setLoadingChildrenIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
+
+  const handleToggleExpanded = (categoria: TreeCategoria) => {
+    const id = categoria.id;
+    const isExpanded = expandedIds.has(id);
+
     setExpandedIds((current) => {
       const next = new Set(current);
-      if (next.has(id)) next.delete(id);
+      if (isExpanded) next.delete(id);
       else next.add(id);
       return next;
     });
-  };
 
-  const handleToggleAll = () => {
-    setExpandedIds(expandedCount === allExpandableIds.length ? new Set() : new Set(allExpandableIds));
+    if (!isExpanded && (categoria.nivel ?? 1) < 3 && !loadedChildrenIds.has(id) && !loadingChildrenIds.has(id)) {
+      void loadChildren(categoria);
+    }
   };
 
   const handleOpenCreate = () => {
@@ -276,15 +389,10 @@ export default function CategoriasList() {
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Categorias Globais</h1>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            {tree.length} departamentos · {categorias.length} categorias cadastradas
+            {departments.length} departamentos · {totalLoadedCategorias} itens carregados
           </p>
         </div>
         <div className="flex gap-2">
-          {allExpandableIds.length > 0 && (
-            <Button variant="outline" onClick={handleToggleAll}>
-              {expandedCount === allExpandableIds.length ? "Recolher tudo" : "Expandir tudo"}
-            </Button>
-          )}
           <Button onClick={handleOpenCreate} className="gap-2">
             <Plus className="h-4 w-4" />
             Nova Categoria
@@ -314,9 +422,9 @@ export default function CategoriasList() {
           <span className="text-right">Ações</span>
         </div>
 
-        {isLoading ? (
+        {isLoading || (searchTerm && isFetchingAllCategories && searchCategories.length === 0) ? (
           <div className="rounded-xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950">
-            Carregando categorias...
+            {searchTerm ? "Buscando categorias..." : "Carregando departamentos..."}
           </div>
         ) : visibleTree.length === 0 ? (
           <div className="rounded-xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950">
@@ -332,6 +440,7 @@ export default function CategoriasList() {
               onToggleExpanded={handleToggleExpanded}
               onEdit={handleOpenEdit}
               onDelete={handleDelete}
+              forceExpanded={searchTerm.length > 0}
             />
           ))
         )}
@@ -347,7 +456,13 @@ export default function CategoriasList() {
               </Button>
             </div>
             <div className="p-6">
-              <CategoriaFormModal categoria={editingCategoria} categorias={categorias} onClose={handleCloseModal} />
+              <CategoriaFormModal
+                categoria={editingCategoria}
+                categorias={modalCategorias}
+                isLoadingCategorias={isFetchingAllCategories}
+                onSaved={resetLoadedChildren}
+                onClose={handleCloseModal}
+              />
             </div>
           </div>
         </div>
@@ -359,10 +474,14 @@ export default function CategoriasList() {
 function CategoriaFormModal({
   categoria,
   categorias,
+  isLoadingCategorias,
+  onSaved,
   onClose,
 }: {
   categoria: Categoria | null;
   categorias: Categoria[];
+  isLoadingCategorias: boolean;
+  onSaved: () => void;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -382,6 +501,7 @@ function CategoriaFormModal({
     mutationFn: (data: Partial<Categoria>) => (categoria ? categoriaService.update(categoria.id, data) : categoriaService.create(data)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categorias"] });
+      onSaved();
       onClose();
     },
     onError: (error: unknown) => {
@@ -436,8 +556,9 @@ function CategoriaFormModal({
           value={parentId}
           onChange={(event) => setParentId(event.target.value)}
           className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          disabled={isLoadingCategorias}
         >
-          <option value="">Sem pai - Departamento</option>
+          <option value="">{isLoadingCategorias ? "Carregando categorias..." : "Sem pai - Departamento"}</option>
           {parentOptions.map((item) => (
             <option key={item.id} value={item.id}>
               {"  ".repeat(Math.max((item.nivel ?? 1) - 1, 0))}
