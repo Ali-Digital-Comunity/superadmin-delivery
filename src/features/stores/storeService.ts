@@ -22,7 +22,7 @@ export interface Store {
   atualizado_em?: string;
 }
 
-export type StoreCreatePayload = Omit<Store, "id" | "criado_em" | "atualizado_em" | "cor_primaria" | "cor_secundaria">;
+export type StoreCreatePayload = Omit<Store, "id" | "criado_em" | "atualizado_em">;
 export type StoreUpdatePayload = Partial<StoreCreatePayload>;
 
 export interface StoreColorPayload {

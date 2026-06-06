@@ -92,12 +92,6 @@ export default function StoreForm() {
     mutationFn: async (data: StoreFormValues) => {
       // Limpa campos vazios para enviar null ao backend
       const payload: Record<string, any> = { ...data };
-      const colors = {
-        cor_primaria: payload.cor_primaria || DEFAULT_PRIMARY_COLOR,
-        cor_secundaria: payload.cor_secundaria || DEFAULT_SECONDARY_COLOR,
-      };
-      delete payload.cor_primaria;
-      delete payload.cor_secundaria;
 
       const optionalFields = ["razao_social", "telefone", "email", "descricao", "logo_url", "horario_abertura", "horario_fechamento"];
       for (const field of optionalFields) {
@@ -107,14 +101,10 @@ export default function StoreForm() {
       }
 
       if (isEditing) {
-        const updatedStore = await storeService.update(id, payload);
-        await storeService.upsertColors(id, colors);
-        return updatedStore;
+        return storeService.update(id, payload);
       }
 
-      const createdStore = await storeService.create(payload as any);
-      await storeService.upsertColors(createdStore.id, colors);
-      return createdStore;
+      return storeService.create(payload as any);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["stores"] });
