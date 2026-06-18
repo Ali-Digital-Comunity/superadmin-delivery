@@ -127,5 +127,15 @@ export const storeService = {
   delete: async (id: string) => {
     const response = await api.delete(`/lojas/${id}`);
     return response.data;
+  },
+
+  getModules: async (id: string) => {
+    const response = await api.get(`/salao/lojas/${id}/modulos`);
+    return unwrapApiData(response.data);
+  },
+
+  updateModules: async (id: string, modules: Array<{ slug: string; enabled: boolean; config?: Record<string, unknown> }>) => {
+    const response = await api.put(`/salao/lojas/${id}/modulos`, { modules });
+    return unwrapApiData(response.data);
   }
 };

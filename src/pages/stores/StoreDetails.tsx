@@ -1,23 +1,36 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { storeService } from "../../features/stores/storeService";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
-import { ArrowLeft, Edit, Store, Mail, Phone, Hash, Clock, DollarSign, Truck, FileText, Image, Users, UtensilsCrossed, WalletCards } from "lucide-react";
+import { ArrowLeft, Edit, Store, Mail, Phone, Hash, Clock, DollarSign, Truck, FileText, Image, Users, UtensilsCrossed, WalletCards, Puzzle } from "lucide-react";
 import { Badge } from "../../components/ui/badge";
 import ContasFinanceirasLoja from "./components/ContasFinanceirasLoja";
 import AdminsLoja from "./components/AdminsLoja";
 
-type StoreTab = "dados" | "administradores" | "financeiro";
+type StoreTab = "dados" | "administradores" | "financeiro" | "modulos";
 
 export default function StoreDetails() {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<StoreTab>("dados");
+  const queryClient = useQueryClient();
 
   const { data: store, isLoading, error } = useQuery({
     queryKey: ["store", id],
     queryFn: () => storeService.getById(id!),
+  });
+
+  const { data: modules = [] } = useQuery({
+    queryKey: ["store-modules", id],
+    queryFn: () => storeService.getModules(id!),
+    enabled: Boolean(id),
+  });
+
+  const moduleMutation = useMutation({
+    mutationFn: (nextModules: Array<{ slug: string; enabled: boolean; config?: Record<string, unknown> }>) =>
+      storeService.updateModules(id!, nextModules),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["store-modules", id] }),
   });
 
   if (isLoading) {
@@ -40,7 +53,19 @@ export default function StoreDetails() {
     { id: "dados", label: "Dados da loja", icon: Store },
     { id: "administradores", label: "Administradores", icon: Users },
     { id: "financeiro", label: "Financeiro", icon: WalletCards },
+    { id: "modulos", label: "Módulos", icon: Puzzle },
   ];
+
+  const toggleModule = (slug: string, enabled: boolean) => {
+    const currentModules = Array.isArray(modules) ? modules : [];
+    const nextModules = currentModules.map((module: any) => ({
+      slug: module.slug,
+      enabled: module.slug === slug ? enabled : Boolean(module.enabled),
+      config: module.config || {},
+    }));
+
+    moduleMutation.mutate(nextModules);
+  };
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -241,6 +266,40 @@ export default function StoreDetails() {
 
       {activeTab === "financeiro" && (
         <ContasFinanceirasLoja lojaId={store.id} />
+      )}
+
+      {activeTab === "modulos" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Puzzle className="h-5 w-5 text-primary" />
+              Módulos habilitados
+            </CardTitle>
+            <CardDescription>
+              Controle quais operações ficam disponíveis para este estabelecimento.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(Array.isArray(modules) ? modules : []).map((module: any) => (
+              <label
+                key={module.slug}
+                className="flex cursor-pointer items-center justify-between gap-4 rounded-lg border p-4"
+              >
+                <span>
+                  <span className="block text-sm font-semibold">{module.nome}</span>
+                  <span className="block text-xs text-muted-foreground">{module.descricao || module.slug}</span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={Boolean(module.enabled)}
+                  disabled={moduleMutation.isPending}
+                  onChange={(event) => toggleModule(module.slug, event.target.checked)}
+                  className="h-5 w-5 accent-slate-900"
+                />
+              </label>
+            ))}
+          </CardContent>
+        </Card>
       )}
     </div>
   );

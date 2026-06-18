@@ -11,6 +11,7 @@ export const SUPERADMIN_MODULES = [
   { slug: "caixa", label: "Caixa" },
   { slug: "legal_documents", label: "Documentos legais" },
   { slug: "observability", label: "Saúde do Sistema" },
+  { slug: "salao", label: "Restaurante/Salão" },
 ] as const;
 
 export interface SuperadminUser {
