@@ -20,6 +20,7 @@ export interface Store {
   cor_secundaria?: string | null;
   tipo_estabelecimento: "mercado" | "lanchonete" | "restaurante" | "hibrido" | "outro";
   cardapio_configuravel_ativo: boolean;
+  visivel_no_app_cliente: boolean;
   criado_em?: string;
   atualizado_em?: string;
 }
@@ -57,11 +58,15 @@ function normalizeStore(rawStore: any): Store {
   const rawConfigurableMenu = rawStore?.cardapio_configuravel_ativo
     ?? rawStore?.cardapioConfiguravelAtivo
     ?? rawStore?.configurableMenuEnabled;
+  const rawCustomerAppVisibility = rawStore?.visivel_no_app_cliente
+    ?? rawStore?.visivelNoAppCliente
+    ?? rawStore?.customerAppVisible;
 
   return {
     ...rawStore,
     tipo_estabelecimento,
     cardapio_configuravel_ativo: parseBoolean(rawConfigurableMenu, false),
+    visivel_no_app_cliente: parseBoolean(rawCustomerAppVisibility, true),
   };
 }
 

@@ -161,6 +161,9 @@ export default function StoreDetails() {
                   <Badge variant={store.cardapio_configuravel_ativo ? "success" : "secondary"}>
                     Cardápio configurável {store.cardapio_configuravel_ativo ? "habilitado" : "desabilitado"}
                   </Badge>
+                  <Badge variant={store.visivel_no_app_cliente !== false ? "success" : "secondary"}>
+                    App do cliente: {store.visivel_no_app_cliente !== false ? "página principal" : "rota de teste"}
+                  </Badge>
                 </div>
               </div>
 

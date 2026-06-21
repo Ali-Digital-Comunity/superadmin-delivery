@@ -39,6 +39,7 @@ const storeSchema = z.object({
   cor_secundaria: colorSchema,
   tipo_estabelecimento: z.enum(["mercado", "lanchonete", "restaurante", "hibrido", "outro"]),
   cardapio_configuravel_ativo: z.boolean(),
+  visivel_no_app_cliente: z.boolean(),
 });
 
 type StoreFormValues = z.infer<typeof storeSchema>;
@@ -76,6 +77,7 @@ export default function StoreForm() {
       cor_secundaria: DEFAULT_SECONDARY_COLOR,
       tipo_estabelecimento: "mercado",
       cardapio_configuravel_ativo: false,
+      visivel_no_app_cliente: true,
     }
   });
   const primaryColorValue = watch("cor_primaria") || DEFAULT_PRIMARY_COLOR;
@@ -110,6 +112,7 @@ export default function StoreForm() {
         cor_secundaria: store.cor_secundaria || DEFAULT_SECONDARY_COLOR,
         tipo_estabelecimento: store.tipo_estabelecimento || "mercado",
         cardapio_configuravel_ativo: Boolean(store.cardapio_configuravel_ativo),
+        visivel_no_app_cliente: store.visivel_no_app_cliente !== false,
       });
     }
   }, [store, reset, isEditing]);
@@ -121,6 +124,7 @@ export default function StoreForm() {
         ...data,
         tipo_estabelecimento: data.tipo_estabelecimento,
         cardapio_configuravel_ativo: data.cardapio_configuravel_ativo === true,
+        visivel_no_app_cliente: data.visivel_no_app_cliente === true,
       };
 
       for (const field of OPTIONAL_TEXT_FIELDS) {
@@ -237,6 +241,24 @@ export default function StoreForm() {
                   <option value="inativa">Inativa</option>
                 </select>
               </div>
+
+              <label
+                htmlFor="visivel_no_app_cliente"
+                className="flex cursor-pointer items-center justify-between gap-4 rounded-lg border bg-muted/20 p-4 md:col-span-2"
+              >
+                <span>
+                  <span className="block text-sm font-semibold">Exibir na página principal do cliente</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    Quando desativado, a loja fica fora da página principal e aparece somente em /mercado/teste.
+                  </span>
+                </span>
+                <input
+                  id="visivel_no_app_cliente"
+                  type="checkbox"
+                  {...register("visivel_no_app_cliente")}
+                  className="h-5 w-5 shrink-0 accent-slate-900"
+                />
+              </label>
 
             </div>
           </CardContent>

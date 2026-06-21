@@ -83,6 +83,7 @@ export default function StoresList() {
               <TableHead>Contato</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Horário</TableHead>
+              <TableHead>Cliente</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
@@ -90,19 +91,19 @@ export default function StoresList() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   Carregando lojas...
                 </TableCell>
               </TableRow>
             ) : error ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-red-500">
+                <TableCell colSpan={8} className="text-center py-8 text-red-500">
                   Erro ao carregar lojas.
                 </TableCell>
               </TableRow>
             ) : filteredStores.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   Nenhuma loja encontrada.
                 </TableCell>
               </TableRow>
@@ -136,6 +137,11 @@ export default function StoresList() {
                         ? `${store.horario_abertura} – ${store.horario_fechamento}`
                         : "—"}
                     </span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={store.visivel_no_app_cliente !== false ? "success" : "secondary"}>
+                      {store.visivel_no_app_cliente !== false ? "Principal" : "Teste"}
+                    </Badge>
                   </TableCell>
                   <TableCell>{getStatusBadge(store.status)}</TableCell>
                   <TableCell className="text-right">
