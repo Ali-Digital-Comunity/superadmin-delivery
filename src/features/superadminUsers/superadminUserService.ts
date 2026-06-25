@@ -6,6 +6,7 @@ export const SUPERADMIN_MODULES = [
   { slug: "products", label: "Produtos" },
   { slug: "categories", label: "Categorias" },
   { slug: "split_rules", label: "Regras de Split" },
+  { slug: "pagarme_marketplace", label: "Stone/Pagar.me" },
   { slug: "mercadopago_test", label: "MP Sandbox" },
   { slug: "audit_logs", label: "Auditoria" },
   { slug: "caixa", label: "Caixa" },

@@ -34,6 +34,7 @@ export default function AdminLayout() {
     { name: "Caixa", path: "/caixa", icon: WalletCards, slug: "caixa" },
     { name: "Acessos", path: "/access-users", icon: Users, slug: "users" },
     { name: "Regras de Split", path: "/settings/split-rules", icon: Settings, slug: "split_rules" },
+    { name: "Stone/Pagar.me", path: "/settings/pagarme-marketplace", icon: WalletCards, slug: "pagarme_marketplace" },
     { name: "MP Sandbox", path: "/settings/mercadopago-test", icon: WalletCards, slug: "mercadopago_test" },
     { name: "Auditoria", path: "/audit-logs", icon: ClipboardList, slug: "audit_logs" },
     { name: "Segurança", path: "/security", icon: ShieldCheck, slug: "dashboard" },

@@ -16,6 +16,7 @@ import CategoriasList from "../../pages/categorias/CategoriasList";
 import RegrasSplitList from "../../pages/financial/RegrasSplitList";
 import RegraSplitForm from "../../pages/financial/RegraSplitForm";
 import { MercadoPagoTest } from "../../pages/financial/MercadoPagoTest";
+import PagarmeMarketplace from "../../pages/financial/PagarmeMarketplace";
 import AuditLogs from "../../pages/settings/AuditLogs";
 import CaixaPlataforma from "../../pages/caixa/CaixaPlataforma";
 import SuperadminUsers from "../../pages/access/SuperadminUsers";
@@ -58,6 +59,7 @@ export function AppRoutes() {
         <Route path="settings/split-rules/new" element={<RegraSplitForm />} />
         <Route path="settings/split-rules/:id/edit" element={<RegraSplitForm />} />
         <Route path="settings/mercadopago-test" element={<MercadoPagoTest />} />
+        <Route path="settings/pagarme-marketplace" element={<PagarmeMarketplace />} />
         <Route path="caixa" element={<CaixaPlataforma />} />
         <Route path="audit-logs" element={<AuditLogs />} />
         <Route path="security" element={<SecurityMfa />} />
