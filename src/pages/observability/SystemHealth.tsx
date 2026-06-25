@@ -78,6 +78,9 @@ const formatMs = (value?: number | null) => (
 
 const metricsUnavailableLabel = (reason?: string | null) => {
   if (reason === "missing_cloud_monitoring_config") return "Cloud Monitoring nao configurado.";
+  if (reason === "missing_cloud_monitoring_project_id") return "Projeto GCP nao encontrado.";
+  if (reason === "missing_cloud_run_service_name") return "Servico Cloud Run nao encontrado.";
+  if (reason === "missing_cloud_monitoring_project_and_service") return "Projeto GCP e servico nao encontrados.";
   if (reason === "cloud_monitoring_unavailable") return "Cloud Monitoring indisponivel.";
   return null;
 };
