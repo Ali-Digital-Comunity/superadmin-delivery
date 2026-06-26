@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, CreditCard, RefreshCw, Settings } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, CheckCircle2, CreditCard, Lock, RefreshCw, Settings, X } from "lucide-react";
 import { CardPayment, initMercadoPago } from "@mercadopago/sdk-react";
 import { mercadopagoService } from "../../features/financial/mercadopagoService";
 import type {
@@ -30,6 +30,92 @@ const getErrorMessage = (error: unknown) => {
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
+const hasThreeDsChallenge = (payment?: MercadoPagoTestPayment | null) =>
+  payment?.status === "pending" &&
+  payment?.status_detail === "pending_challenge" &&
+  Boolean(payment?.three_ds_info?.external_resource_url && payment?.three_ds_info?.creq);
+
+function ThreeDsChallengeModal({
+  payment,
+  onClose,
+  onRefreshStatus,
+  checkingStatus,
+}: {
+  payment: MercadoPagoTestPayment;
+  onClose: () => void;
+  onRefreshStatus: () => void;
+  checkingStatus: boolean;
+}) {
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
+  const submittedRef = useRef(false);
+
+  useEffect(() => {
+    if (submittedRef.current) return;
+    const info = payment.three_ds_info;
+    const frame = frameRef.current;
+    if (!frame?.contentWindow || !info?.external_resource_url || !info.creq) return;
+
+    submittedRef.current = true;
+    const frameDocument = frame.contentWindow.document;
+    frameDocument.open();
+    frameDocument.write("<!doctype html><html><body></body></html>");
+    frameDocument.close();
+
+    const form = frameDocument.createElement("form");
+    form.method = "post";
+    form.action = info.external_resource_url;
+    form.target = frame.name;
+
+    const creqInput = frameDocument.createElement("input");
+    creqInput.type = "hidden";
+    creqInput.name = "creq";
+    creqInput.value = info.creq;
+    form.appendChild(creqInput);
+    frameDocument.body.appendChild(form);
+    form.submit();
+  }, [payment]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 p-4 sm:items-center">
+      <div className="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-4 shadow-xl dark:bg-slate-950">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+              <Lock className="h-5 w-5 text-emerald-600" />
+              Desafio 3DS
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Complete a validacao no iframe. Depois consulte o status para confirmar o resultado final.
+            </p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fechar desafio 3DS">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <iframe
+          ref={frameRef}
+          id="mp-sandbox-three-ds-frame"
+          name="mp-sandbox-three-ds-frame"
+          title="Desafio 3DS Mercado Pago"
+          className="w-full rounded-lg border border-slate-200 bg-white"
+          style={{ height: "min(600px, calc(100vh - 240px))", minHeight: 440 }}
+        />
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button variant="outline" onClick={onRefreshStatus} disabled={!payment.id || checkingStatus}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${checkingStatus ? "animate-spin" : ""}`} />
+            {checkingStatus ? "Consultando..." : "Consultar status"}
+          </Button>
+          <Button variant="outline" onClick={onClose}>
+            Fechar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const MercadoPagoTest = () => {
   const [config, setConfig] = useState<MercadoPagoTestConfig | null>(null);
   const [order, setOrder] = useState<MercadoPagoTestOrder | null>(null);
@@ -39,6 +125,7 @@ export const MercadoPagoTest = () => {
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [threeDsModalOpen, setThreeDsModalOpen] = useState(false);
   const [orderForm, setOrderForm] = useState({
     amount: "10.00",
     description: "Pedido sandbox Mercado Pago",
@@ -135,6 +222,9 @@ export const MercadoPagoTest = () => {
       });
       setOrder(result.order);
       setPaymentResult(result);
+      if (hasThreeDsChallenge(result.payment)) {
+        setThreeDsModalOpen(true);
+      }
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     }
@@ -150,6 +240,9 @@ export const MercadoPagoTest = () => {
     try {
       const payment = await mercadopagoService.getTestPaymentStatus(paymentId);
       setStatusLookup(payment);
+      if (hasThreeDsChallenge(payment)) {
+        setThreeDsModalOpen(true);
+      }
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -357,6 +450,15 @@ export const MercadoPagoTest = () => {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  {hasThreeDsChallenge(paymentResult.payment) && (
+                    <Button
+                      onClick={() => setThreeDsModalOpen(true)}
+                      disabled={!paymentResult.payment.three_ds_info}
+                    >
+                      <Lock className="mr-2 h-4 w-4" />
+                      Abrir desafio 3DS
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     onClick={refreshPaymentStatus}
@@ -376,6 +478,15 @@ export const MercadoPagoTest = () => {
           )}
         </div>
       </div>
+
+      {threeDsModalOpen && paymentResult?.payment && hasThreeDsChallenge(paymentResult.payment) && (
+        <ThreeDsChallengeModal
+          payment={paymentResult.payment}
+          checkingStatus={checkingStatus}
+          onRefreshStatus={refreshPaymentStatus}
+          onClose={() => setThreeDsModalOpen(false)}
+        />
+      )}
     </div>
   );
 };
