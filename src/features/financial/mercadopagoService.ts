@@ -64,6 +64,10 @@ export interface MercadoPagoTestPayment {
   date_created: string | null;
   date_approved: string | null;
   date_last_updated: string | null;
+  three_ds_info?: {
+    external_resource_url: string;
+    creq: string;
+  } | null;
 }
 
 export interface CreateTestOrderData {
