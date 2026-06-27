@@ -129,6 +129,7 @@ export default function StoresList() {
                     <div className="flex flex-col items-start gap-1">
                       <span className="text-sm capitalize">{store.tipo_estabelecimento || "mercado"}</span>
                       {store.cardapio_configuravel_ativo && <Badge variant="outline">Cardápio ativo</Badge>}
+                      {store.permitir_configurar_cpf_na_nota !== false && <Badge variant="outline">CPF na nota</Badge>}
                     </div>
                   </TableCell>
                   <TableCell>

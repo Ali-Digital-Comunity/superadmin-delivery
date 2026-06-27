@@ -27,6 +27,7 @@ export interface Store {
   cor_secundaria?: string | null;
   tipo_estabelecimento: "mercado" | "lanchonete" | "restaurante" | "hibrido" | "outro";
   cardapio_configuravel_ativo: boolean;
+  permitir_configurar_cpf_na_nota: boolean;
   visivel_no_app_cliente: boolean;
   preco_app_taxa_ativa: boolean;
   criado_em?: string;
@@ -43,6 +44,10 @@ export interface StoreColorPayload {
 
 export interface StoreOrderCreationPreference {
   permitir_criacao_pedidos_delivery_admin: boolean;
+}
+
+export interface StoreCpfInvoicePreference {
+  permitir_cpf_na_nota_cliente: boolean;
 }
 
 const ESTABLISHMENT_TYPES = ["mercado", "lanchonete", "restaurante", "hibrido", "outro"] as const;
@@ -70,6 +75,9 @@ function normalizeStore(rawStore: any): Store {
   const rawConfigurableMenu = rawStore?.cardapio_configuravel_ativo
     ?? rawStore?.cardapioConfiguravelAtivo
     ?? rawStore?.configurableMenuEnabled;
+  const rawCpfInvoiceConfiguration = rawStore?.permitir_configurar_cpf_na_nota
+    ?? rawStore?.permitirConfigurarCpfNaNota
+    ?? rawStore?.cpfInvoiceConfigurationEnabled;
   const rawCustomerAppVisibility = rawStore?.visivel_no_app_cliente
     ?? rawStore?.visivelNoAppCliente
     ?? rawStore?.customerAppVisible;
@@ -81,6 +89,7 @@ function normalizeStore(rawStore: any): Store {
     ...rawStore,
     tipo_estabelecimento,
     cardapio_configuravel_ativo: parseBoolean(rawConfigurableMenu, false),
+    permitir_configurar_cpf_na_nota: parseBoolean(rawCpfInvoiceConfiguration, true),
     visivel_no_app_cliente: parseBoolean(rawCustomerAppVisibility, true),
     preco_app_taxa_ativa: parseBoolean(rawAppPriceFee, false),
   };
@@ -143,6 +152,17 @@ export const storeService = {
   updateDeliveryOrderCreationPreference: async (
     storeId: string,
     preference: StoreOrderCreationPreference,
+  ) => {
+    const configResponse = await api.get(`/lojas/${storeId}/configuracoes`);
+    const config = unwrapApiData<any>(configResponse.data);
+    if (!config?.id) throw new Error("A loja não possui configurações para atualizar.");
+    const response = await api.patch(`/configuracoes_loja/${config.id}`, preference);
+    return unwrapApiData(response.data);
+  },
+
+  updateCpfInvoicePreference: async (
+    storeId: string,
+    preference: StoreCpfInvoicePreference,
   ) => {
     const configResponse = await api.get(`/lojas/${storeId}/configuracoes`);
     const config = unwrapApiData<any>(configResponse.data);

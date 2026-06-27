@@ -46,6 +46,7 @@ const storeSchema = z.object({
   cor_secundaria: colorSchema,
   tipo_estabelecimento: z.enum(["mercado", "lanchonete", "restaurante", "hibrido", "outro"]),
   cardapio_configuravel_ativo: z.boolean(),
+  permitir_configurar_cpf_na_nota: z.boolean(),
   visivel_no_app_cliente: z.boolean(),
   preco_app_taxa_ativa: z.boolean(),
 });
@@ -92,6 +93,7 @@ export default function StoreForm() {
       cor_secundaria: DEFAULT_SECONDARY_COLOR,
       tipo_estabelecimento: "mercado",
       cardapio_configuravel_ativo: false,
+      permitir_configurar_cpf_na_nota: true,
       visivel_no_app_cliente: true,
       preco_app_taxa_ativa: false,
     }
@@ -100,6 +102,7 @@ export default function StoreForm() {
   const secondaryColorValue = watch("cor_secundaria") || DEFAULT_SECONDARY_COLOR;
   const establishmentType = watch("tipo_estabelecimento");
   const configurableMenuEnabled = watch("cardapio_configuravel_ativo");
+  const cpfInvoiceConfigurationEnabled = watch("permitir_configurar_cpf_na_nota");
 
   const { data: store, isLoading } = useQuery({
     queryKey: ["store", id],
@@ -135,6 +138,7 @@ export default function StoreForm() {
         cor_secundaria: store.cor_secundaria || DEFAULT_SECONDARY_COLOR,
         tipo_estabelecimento: store.tipo_estabelecimento || "mercado",
         cardapio_configuravel_ativo: Boolean(store.cardapio_configuravel_ativo),
+        permitir_configurar_cpf_na_nota: store.permitir_configurar_cpf_na_nota !== false,
         visivel_no_app_cliente: store.visivel_no_app_cliente !== false,
         preco_app_taxa_ativa: Boolean(store.preco_app_taxa_ativa),
       });
@@ -148,6 +152,7 @@ export default function StoreForm() {
         ...data,
         tipo_estabelecimento: data.tipo_estabelecimento,
         cardapio_configuravel_ativo: data.cardapio_configuravel_ativo === true,
+        permitir_configurar_cpf_na_nota: data.permitir_configurar_cpf_na_nota === true,
         visivel_no_app_cliente: data.visivel_no_app_cliente === true,
         preco_app_taxa_ativa: data.preco_app_taxa_ativa === true,
       };
@@ -357,10 +362,30 @@ export default function StoreForm() {
               />
             </label>
 
+            <label
+              htmlFor="permitir_configurar_cpf_na_nota"
+              className="flex cursor-pointer items-center justify-between gap-4 rounded-lg border bg-muted/20 p-4"
+            >
+              <span>
+                <span className="block text-sm font-semibold">Permitir configuração de CPF na nota</span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Exibe no admin do tenant a opção para liberar CPF na nota no checkout dos clientes.
+                </span>
+              </span>
+              <input
+                id="permitir_configurar_cpf_na_nota"
+                type="checkbox"
+                {...register("permitir_configurar_cpf_na_nota")}
+                className="h-5 w-5 shrink-0 accent-slate-900"
+              />
+            </label>
+
             <div className="rounded-md bg-slate-100 px-3 py-2 text-sm dark:bg-slate-900">
               Configuração atual: <strong className="capitalize">{establishmentType || "mercado"}</strong>
               {" · "}
               Cardápio configurável <strong>{configurableMenuEnabled ? "habilitado" : "desabilitado"}</strong>
+              {" · "}
+              CPF na nota <strong>{cpfInvoiceConfigurationEnabled ? "configurável" : "bloqueado"}</strong>
             </div>
           </CardContent>
         </Card>
