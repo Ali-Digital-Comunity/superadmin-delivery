@@ -47,6 +47,7 @@ const storeSchema = z.object({
   tipo_estabelecimento: z.enum(["mercado", "lanchonete", "restaurante", "hibrido", "outro"]),
   cardapio_configuravel_ativo: z.boolean(),
   permitir_configurar_cpf_na_nota: z.boolean(),
+  exibir_avaliacao_experiencia_compra: z.boolean(),
   visivel_no_app_cliente: z.boolean(),
   preco_app_taxa_ativa: z.boolean(),
 });
@@ -94,6 +95,7 @@ export default function StoreForm() {
       tipo_estabelecimento: "mercado",
       cardapio_configuravel_ativo: false,
       permitir_configurar_cpf_na_nota: true,
+      exibir_avaliacao_experiencia_compra: true,
       visivel_no_app_cliente: true,
       preco_app_taxa_ativa: false,
     }
@@ -103,6 +105,7 @@ export default function StoreForm() {
   const establishmentType = watch("tipo_estabelecimento");
   const configurableMenuEnabled = watch("cardapio_configuravel_ativo");
   const cpfInvoiceConfigurationEnabled = watch("permitir_configurar_cpf_na_nota");
+  const orderExperienceFeedbackEnabled = watch("exibir_avaliacao_experiencia_compra");
 
   const { data: store, isLoading } = useQuery({
     queryKey: ["store", id],
@@ -139,6 +142,7 @@ export default function StoreForm() {
         tipo_estabelecimento: store.tipo_estabelecimento || "mercado",
         cardapio_configuravel_ativo: Boolean(store.cardapio_configuravel_ativo),
         permitir_configurar_cpf_na_nota: store.permitir_configurar_cpf_na_nota !== false,
+        exibir_avaliacao_experiencia_compra: store.exibir_avaliacao_experiencia_compra !== false,
         visivel_no_app_cliente: store.visivel_no_app_cliente !== false,
         preco_app_taxa_ativa: Boolean(store.preco_app_taxa_ativa),
       });
@@ -153,6 +157,7 @@ export default function StoreForm() {
         tipo_estabelecimento: data.tipo_estabelecimento,
         cardapio_configuravel_ativo: data.cardapio_configuravel_ativo === true,
         permitir_configurar_cpf_na_nota: data.permitir_configurar_cpf_na_nota === true,
+        exibir_avaliacao_experiencia_compra: data.exibir_avaliacao_experiencia_compra === true,
         visivel_no_app_cliente: data.visivel_no_app_cliente === true,
         preco_app_taxa_ativa: data.preco_app_taxa_ativa === true,
       };
@@ -380,12 +385,32 @@ export default function StoreForm() {
               />
             </label>
 
+            <label
+              htmlFor="exibir_avaliacao_experiencia_compra"
+              className="flex cursor-pointer items-center justify-between gap-4 rounded-lg border bg-muted/20 p-4"
+            >
+              <span>
+                <span className="block text-sm font-semibold">Mostrar avaliação após o pedido</span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Exibe para o cliente o modal com 3 emojis animados depois da compra.
+                </span>
+              </span>
+              <input
+                id="exibir_avaliacao_experiencia_compra"
+                type="checkbox"
+                {...register("exibir_avaliacao_experiencia_compra")}
+                className="h-5 w-5 shrink-0 accent-slate-900"
+              />
+            </label>
+
             <div className="rounded-md bg-slate-100 px-3 py-2 text-sm dark:bg-slate-900">
               Configuração atual: <strong className="capitalize">{establishmentType || "mercado"}</strong>
               {" · "}
               Cardápio configurável <strong>{configurableMenuEnabled ? "habilitado" : "desabilitado"}</strong>
               {" · "}
               CPF na nota <strong>{cpfInvoiceConfigurationEnabled ? "configurável" : "bloqueado"}</strong>
+              {" · "}
+              Avaliação <strong>{orderExperienceFeedbackEnabled ? "visível" : "oculta"}</strong>
             </div>
           </CardContent>
         </Card>

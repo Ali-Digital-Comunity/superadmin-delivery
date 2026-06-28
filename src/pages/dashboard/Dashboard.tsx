@@ -12,6 +12,7 @@ import {
   Package,
   RefreshCw,
   ShieldAlert,
+  Smile,
   ShoppingCart,
   Store,
   Ticket,
@@ -83,6 +84,7 @@ function normalizeDashboard(m: any) {
       carrinhos: m.carrinhos,
       cupons: m.cupons,
       auditoria: m.auditoria,
+      experienciaCompra: m.experiencia_compra || { resumo: {}, por_loja: [] },
       topLojas: (m.rankings?.top_lojas_faturamento || []).slice(0, 5).map((l: any) => ({
         nome: l.nome?.length > 18 ? `${l.nome.slice(0, 18)}...` : l.nome,
         faturamento: Number(l.faturamento),
@@ -153,6 +155,7 @@ function normalizeDashboard(m: any) {
     carrinhos: { total_carrinhos: 0, carrinhos_ativos: 0, carrinhos_convertidos: 0, carrinhos_abandonados: 0 },
     cupons: { total_usos: 0 },
     auditoria: { total_logs: 0 },
+    experienciaCompra: m.experiencia_compra || { resumo: {}, por_loja: [] },
     topLojas: [],
     gerado_em: m.gerado_em,
   };
@@ -220,6 +223,8 @@ export default function Dashboard() {
   const r = m.resumo;
   const ped = m.pedidos;
   const fin = m.financeiro;
+  const experiencia = m.experienciaCompra?.resumo || {};
+  const experienciaPorLoja = m.experienciaCompra?.por_loja || [];
 
   return (
     <div className="space-y-6">
@@ -265,7 +270,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
         <StatCard title="Lojas Ativas" value={num(r.lojas_ativas)} icon={Store}
           sub={`${num(r.total_lojas)} total · ${num(r.lojas_inativas)} inativas`} color="text-indigo-500"
           help="Quantidade de lojas ativas no escopo selecionado." />
@@ -284,6 +289,10 @@ export default function Dashboard() {
         <StatCard title="Pedidos Totais" value={num(ped.total_pedidos)} icon={ShoppingCart}
           sub={`${num(ped.pedidos_entregues)} entregues · ${num(ped.pedidos_cancelados)} cancelados`} color="text-blue-500"
           help="Total de pedidos criados ou realizados dentro dos filtros." />
+        <StatCard title="Experiência" value={num(experiencia.total_avaliacoes)} icon={Smile}
+          sub={`${num(experiencia.otimo)} ótimo · ${num(experiencia.bom)} bom · ${num(experiencia.ruim)} ruim`}
+          color="text-rose-500"
+          help="Avaliações simples enviadas pelos clientes ao fim do pedido." />
         <StatCard title="Produtos Ativos" value={num(r.produtos_ativos)} icon={Package}
           sub={`${num(r.total_produtos)} total · ${num(r.total_categorias)} categorias`} color="text-orange-500"
           help="Produtos ativos disponíveis no escopo selecionado." />
@@ -315,6 +324,36 @@ export default function Dashboard() {
                 <Bar dataKey="faturamento" fill="#6366f1" radius={[0, 6, 6, 0]} name="Faturamento" />
               </BarChart>
             </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {experienciaPorLoja.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Smile className="h-4 w-4 text-rose-500" />
+              Experiência por Loja
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {experienciaPorLoja.slice(0, 6).map((item: any) => (
+                <div key={item.id} className="flex items-center justify-between gap-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{item.nome}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {num(item.total_avaliacoes)} respostas · média {Number(item.nota_media || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right text-xs text-muted-foreground">
+                    <span className="font-semibold text-emerald-600">{num(item.otimo)}</span> ótimo ·{" "}
+                    <span className="font-semibold text-amber-600">{num(item.bom)}</span> bom ·{" "}
+                    <span className="font-semibold text-red-600">{num(item.ruim)}</span> ruim
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}

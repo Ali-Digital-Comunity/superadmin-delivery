@@ -28,6 +28,7 @@ export interface Store {
   tipo_estabelecimento: "mercado" | "lanchonete" | "restaurante" | "hibrido" | "outro";
   cardapio_configuravel_ativo: boolean;
   permitir_configurar_cpf_na_nota: boolean;
+  exibir_avaliacao_experiencia_compra: boolean;
   visivel_no_app_cliente: boolean;
   preco_app_taxa_ativa: boolean;
   criado_em?: string;
@@ -84,12 +85,16 @@ function normalizeStore(rawStore: any): Store {
   const rawAppPriceFee = rawStore?.preco_app_taxa_ativa
     ?? rawStore?.precoAppTaxaAtiva
     ?? rawStore?.appPriceFeeEnabled;
+  const rawOrderExperienceFeedback = rawStore?.exibir_avaliacao_experiencia_compra
+    ?? rawStore?.exibirAvaliacaoExperienciaCompra
+    ?? rawStore?.orderExperienceFeedbackEnabled;
 
   return {
     ...rawStore,
     tipo_estabelecimento,
     cardapio_configuravel_ativo: parseBoolean(rawConfigurableMenu, false),
     permitir_configurar_cpf_na_nota: parseBoolean(rawCpfInvoiceConfiguration, true),
+    exibir_avaliacao_experiencia_compra: parseBoolean(rawOrderExperienceFeedback, true),
     visivel_no_app_cliente: parseBoolean(rawCustomerAppVisibility, true),
     preco_app_taxa_ativa: parseBoolean(rawAppPriceFee, false),
   };
