@@ -5,6 +5,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Box,
+  Clock,
   CreditCard,
   DollarSign,
   Info,
@@ -38,6 +39,34 @@ function fmt(v: number | string | undefined | null) {
 function num(v: number | string | undefined | null) {
   if (v === undefined || v === null) return "0";
   return Number(v).toLocaleString("pt-BR");
+}
+
+function labelMetodoPagamento(value: string | undefined | null) {
+  const labels: Record<string, string> = {
+    dinheiro: "Dinheiro",
+    cartao: "Cartão",
+    pix: "PIX",
+    cartao_credito: "Cartão crédito",
+    cartao_debito: "Cartão débito",
+    outros: "Outros",
+  };
+  return labels[String(value || "").toLowerCase()] || String(value || "Indefinido");
+}
+
+function labelCanalPagamento(value: string | undefined | null) {
+  return value === "entrega" ? "Na entrega" : value === "app" ? "No app" : String(value || "Indefinido");
+}
+
+function labelSituacaoFinanceira(value: string | undefined | null) {
+  const labels: Record<string, string> = {
+    recebido: "Recebido",
+    previsto: "Previsto",
+    rejeitado: "Rejeitado",
+    cancelado: "Cancelado",
+    estornado: "Estornado",
+    indefinido: "Indefinido",
+  };
+  return labels[String(value || "").toLowerCase()] || String(value || "Indefinido");
 }
 
 function StatCard({ title, value, icon: Icon, sub, color = "text-primary", trend, help }: {
@@ -141,6 +170,14 @@ function normalizeDashboard(m: any) {
         total_taxas_gateway: m.pagamentos?.total_taxas_gateway,
         valor_liquido_total: Number(m.pagamentos?.valor_aprovado || 0) - Number(m.pagamentos?.total_taxas_gateway || 0),
       },
+      pagamentos_detalhados: m.financeiro?.pagamentos_detalhados || m.pagamentos_detalhados || {
+        resumo: {},
+        por_forma_pagamento: [],
+        por_canal_pagamento: [],
+        por_forma_e_canal: [],
+        por_status: [],
+        recentes: [],
+      },
       estornos: { total_estornos: 0, estornos_aprovados: 0, estornos_pendentes: 0, valor_total_estornado: 0 },
       splits: { total_splits: 0, splits_transferidos: 0, splits_pendentes: 0, splits_falharam: 0, valor_bruto_transferido: 0, valor_liquido_transferido: 0 },
       webhooks: { total_notificacoes: 0, processadas: 0, nao_processadas: 0, com_erro: 0 },
@@ -223,6 +260,12 @@ export default function Dashboard() {
   const r = m.resumo;
   const ped = m.pedidos;
   const fin = m.financeiro;
+  const pagamentosDetalhados = fin.pagamentos_detalhados || {};
+  const resumoPagamentos = pagamentosDetalhados.resumo || {};
+  const pagamentosPorForma = pagamentosDetalhados.por_forma_pagamento || [];
+  const pagamentosPorCanal = pagamentosDetalhados.por_canal_pagamento || [];
+  const pagamentosPorFormaCanal = pagamentosDetalhados.por_forma_e_canal || [];
+  const pagamentosPorStatus = pagamentosDetalhados.por_status || [];
   const experiencia = m.experienciaCompra?.resumo || {};
   const experienciaPorLoja = m.experienciaCompra?.por_loja || [];
 
@@ -371,6 +414,85 @@ export default function Dashboard() {
           color="text-indigo-500"
           help="Valor líquido já transferido em splits de pagamento." />
       </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard title="Recebido Real" value={fmt(resumoPagamentos.valor_recebido)} icon={DollarSign}
+          sub={`${num(resumoPagamentos.pagamentos_recebidos)} pagamento(s) recebido(s)`}
+          color="text-emerald-500" trend="up"
+          help="Pagamentos aprovados ou com data de recebimento registrada." />
+        <StatCard title="Previsto a Receber" value={fmt(resumoPagamentos.valor_previsto_receber)} icon={Clock}
+          sub={`${num(resumoPagamentos.pagamentos_previstos)} pagamento(s) pendente(s)`}
+          color="text-amber-500"
+          help="Pagamentos pendentes ou em processamento que ainda devem ser recebidos." />
+        <StatCard title="Pagamento na Entrega" value={fmt(resumoPagamentos.valor_na_entrega)} icon={Truck}
+          sub={`${num(resumoPagamentos.pagamentos_na_entrega)} dinheiro/cartão na entrega`}
+          color="text-cyan-500"
+          help="Pagamentos marcados para cobrança presencial na entrega." />
+        <StatCard title="Pagamento no App" value={fmt(resumoPagamentos.valor_no_app)} icon={CreditCard}
+          sub={`${num(resumoPagamentos.pagamentos_no_app)} pix/cartão processados no app`}
+          color="text-violet-500"
+          help="Pagamentos processados pelo checkout do app." />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <MiniSummary icon={DollarSign} title="Recebido por Forma" color="text-emerald-500" rows={
+          pagamentosPorForma.length
+            ? pagamentosPorForma.map((item: any) => [
+                labelMetodoPagamento(item.metodo_pagamento),
+                `${fmt(item.valor_recebido)} / ${fmt(item.valor_previsto_receber)}`,
+              ])
+            : [["Sem dados", fmt(0)]]
+        } help="Valor recebido e valor previsto por dinheiro, cartão, PIX e outros métodos." />
+        <MiniSummary icon={Truck} title="Recebido por Canal" color="text-cyan-500" rows={
+          pagamentosPorCanal.length
+            ? pagamentosPorCanal.map((item: any) => [
+                labelCanalPagamento(item.canal_pagamento),
+                `${fmt(item.valor_recebido)} / ${fmt(item.valor_previsto_receber)}`,
+              ])
+            : [["Sem dados", fmt(0)]]
+        } help="Separação entre pagamentos no app e pagamentos na entrega." />
+        <MiniSummary icon={AlertTriangle} title="Status Financeiro" color="text-amber-500" rows={
+          pagamentosPorStatus.length
+            ? pagamentosPorStatus.slice(0, 5).map((item: any) => [
+                `${labelSituacaoFinanceira(item.situacao_financeira)} (${item.pagamento_status || "-"})`,
+                `${fmt(item.valor_total)} · ${num(item.quantidade)}`,
+              ])
+            : [["Sem dados", fmt(0)]]
+        } help="Distribuição do dinheiro recebido, previsto, rejeitado, cancelado ou estornado." />
+      </div>
+
+      {pagamentosPorFormaCanal.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CreditCard className="h-4 w-4 text-primary" />
+              Detalhamento de Pagamentos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {pagamentosPorFormaCanal.map((item: any) => (
+                <div key={`${item.metodo_pagamento}-${item.canal_pagamento}-${item.situacao_financeira}`} className="rounded-lg border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">{labelMetodoPagamento(item.metodo_pagamento)}</p>
+                      <p className="text-xs text-muted-foreground">{labelCanalPagamento(item.canal_pagamento)} · {labelSituacaoFinanceira(item.situacao_financeira)}</p>
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground">{num(item.quantidade)}</span>
+                  </div>
+                  <div className="mt-3 flex items-end justify-between gap-3">
+                    <div>
+                      <p className="text-lg font-bold">{fmt(item.valor_total)}</p>
+                      <p className="text-xs text-muted-foreground">Líquido {fmt(item.valor_liquido)}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Taxas {fmt(item.taxas_gateway)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MiniSummary icon={Truck} title="Entregas" color="text-teal-500" rows={[

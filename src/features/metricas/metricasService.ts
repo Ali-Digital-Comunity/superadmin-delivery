@@ -59,6 +59,63 @@ export interface MetricasGerais {
       total_taxas_gateway: number;
       valor_liquido_total: number;
     };
+    pagamentos_detalhados?: {
+      resumo: {
+        total_pagamentos: number;
+        valor_total_registrado: number;
+        pagamentos_recebidos: number;
+        valor_recebido: number;
+        valor_liquido_recebido: number;
+        taxas_gateway_recebidas: number;
+        pagamentos_previstos: number;
+        valor_previsto_receber: number;
+        pagamentos_rejeitados: number;
+        valor_rejeitado: number;
+        pagamentos_cancelados: number;
+        valor_cancelado: number;
+        pagamentos_estornados: number;
+        valor_estornado: number;
+        pagamentos_na_entrega: number;
+        valor_na_entrega: number;
+        pagamentos_no_app: number;
+        valor_no_app: number;
+      };
+      por_forma_pagamento: Array<{
+        metodo_pagamento: string;
+        quantidade: number;
+        valor_total: number;
+        valor_recebido: number;
+        valor_previsto_receber: number;
+        valor_nao_recebido: number;
+        recebidos: number;
+        previstos: number;
+      }>;
+      por_canal_pagamento: Array<{
+        canal_pagamento: string;
+        quantidade: number;
+        valor_total: number;
+        valor_recebido: number;
+        valor_previsto_receber: number;
+        recebidos: number;
+        previstos: number;
+      }>;
+      por_forma_e_canal: Array<{
+        metodo_pagamento: string;
+        canal_pagamento: string;
+        situacao_financeira: string;
+        quantidade: number;
+        valor_total: number;
+        valor_liquido: number;
+        taxas_gateway: number;
+      }>;
+      por_status: Array<{
+        pagamento_status: string;
+        situacao_financeira: string;
+        quantidade: number;
+        valor_total: number;
+      }>;
+      recentes: Array<Record<string, unknown>>;
+    };
     formas_pagamento: Array<{
       forma_pagamento: string;
       quantidade: number;
